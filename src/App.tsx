@@ -1,6 +1,7 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { Chess } from 'chess.js';
-import { RefreshCw, Lightbulb } from 'lucide-react';
+import { RefreshCw, Lightbulb, Play, Puzzle, RotateCcw, Undo2 } from 'lucide-react';
+import { ChessEngine, GameState } from './ChessEngine';
 
 const CSV_DATA = `PuzzleId,FEN,Moves,Rating,Themes
 00008,r6k/pp2r2p/4Rp1Q/3p4/8/1N1P2R1/PqP2bPP/7K b - - 0 24,f2g3 e6e7 b2b1 b3c1 b1c1 h6c1,1925,crushing hangingPiece long middlegame
@@ -45,7 +46,167 @@ const PIECES: Record<string, string> = {
   p: '♟', n: '♞', b: '♝', r: '♜', q: '♛', k: '♚'
 };
 
-export default function App() {
+function LocalPlay() {
+  const engine = useMemo(() => new ChessEngine(), []);
+  const [gameState, setGameState] = useState<GameState>(engine.getState());
+  const [selectedSquare, setSelectedSquare] = useState<string | null>(null);
+  const [legalMoves, setLegalMoves] = useState<any[]>([]);
+  const [lastMove, setLastMove] = useState<{from: string, to: string} | null>(null);
+
+  const handleSquareClick = (square: string) => {
+    if (gameState.isGameOver) return;
+
+    if (selectedSquare === square) {
+      setSelectedSquare(null);
+      setLegalMoves([]);
+      return;
+    }
+
+    const piece = gameState.board.flat().find(p => p?.square === square);
+    
+    if (!selectedSquare) {
+      if (piece && piece.color === gameState.turn) {
+        setSelectedSquare(square);
+        setLegalMoves(engine.getLegalMoves(square));
+      }
+    } else {
+      const move = legalMoves.find(m => m.to === square);
+      if (move) {
+        const result = engine.move(move.from, move.to, 'q');
+        if (result) {
+          setGameState(engine.getState());
+          setLastMove({ from: move.from, to: move.to });
+        }
+      } else if (piece && piece.color === gameState.turn) {
+        setSelectedSquare(square);
+        setLegalMoves(engine.getLegalMoves(square));
+      } else {
+        setSelectedSquare(null);
+        setLegalMoves([]);
+      }
+    }
+  };
+
+  const handleUndo = () => {
+    engine.undo();
+    setGameState(engine.getState());
+    setSelectedSquare(null);
+    setLegalMoves([]);
+    setLastMove(null);
+  };
+
+  const handleReset = () => {
+    engine.reset();
+    setGameState(engine.getState());
+    setSelectedSquare(null);
+    setLegalMoves([]);
+    setLastMove(null);
+  };
+
+  const ranks = [7,6,5,4,3,2,1,0];
+  const files = [0,1,2,3,4,5,6,7];
+
+  let statusText = gameState.turn === 'w' ? "White's Turn" : "Black's Turn";
+  if (gameState.isGameOver) {
+    if (gameState.result === 'checkmate') {
+      statusText = `Checkmate! ${gameState.winner === 'w' ? 'White' : 'Black'} wins!`;
+    } else {
+      statusText = `Draw (${gameState.result.replace('_', ' ')})`;
+    }
+  } else if (gameState.inCheck) {
+    statusText += " - Check!";
+  }
+
+  return (
+    <div className="flex flex-col items-center w-full gap-4">
+      <div className="w-full flex justify-between items-end px-1">
+        <div className="flex items-center gap-2 text-sm">
+          <span className={`font-bold ${gameState.isGameOver ? 'text-[#629924]' : gameState.inCheck ? 'text-red-400' : 'text-white'}`}>
+            {statusText}
+          </span>
+        </div>
+      </div>
+
+      <div className="w-full aspect-square grid grid-cols-8 grid-rows-8 rounded shadow-2xl relative border-2 border-[#302e2b] overflow-hidden">
+        {ranks.map((rank, rIdx) => 
+          files.map((file, fIdx) => {
+            const sq = String.fromCharCode(97 + file) + (rank + 1);
+            const piece = gameState.board[rank][file];
+            const isDark = (rank + file) % 2 === 0;
+            
+            const isSelected = selectedSquare === sq;
+            const isLastMove = lastMove?.from === sq || lastMove?.to === sq;
+            const isLegal = legalMoves.some(m => m.to === sq);
+
+            return (
+              <div 
+                key={sq}
+                onClick={() => handleSquareClick(sq)}
+                className={`relative flex items-center justify-center cursor-pointer
+                  ${isDark ? 'bg-[#b58863]' : 'bg-[#f0d9b5]'}
+                `}
+              >
+                {isLastMove && <div className="absolute inset-0 bg-[#9bc700] opacity-40 pointer-events-none"></div>}
+                {isSelected && <div className="absolute inset-0 bg-[#14551e] opacity-50 pointer-events-none"></div>}
+                {isLegal && (
+                  <div className="absolute w-1/3 h-1/3 rounded-full bg-black/20 pointer-events-none z-10"></div>
+                )}
+
+                {fIdx === 0 && (
+                  <span className={`absolute top-0.5 left-1 text-[10px] font-bold ${isDark ? 'text-[#f0d9b5]' : 'text-[#b58863]'}`}>
+                    {rank + 1}
+                  </span>
+                )}
+                {rIdx === 7 && (
+                  <span className={`absolute bottom-0.5 right-1 text-[10px] font-bold ${isDark ? 'text-[#f0d9b5]' : 'text-[#b58863]'}`}>
+                    {String.fromCharCode(97 + file)}
+                  </span>
+                )}
+
+                {piece && (
+                  <div 
+                    className={`text-[11vw] sm:text-[55px] leading-none z-20 select-none
+                      ${piece.color === 'w' 
+                        ? 'text-white drop-shadow-[0_2px_2px_rgba(0,0,0,0.4)] [-webkit-text-stroke:1.5px_#222]' 
+                        : 'text-[#222] drop-shadow-[0_2px_2px_rgba(0,0,0,0.4)] [-webkit-text-stroke:1.5px_#ddd]'
+                      }
+                    `}
+                  >
+                    {PIECES[piece.type]}
+                  </div>
+                )}
+              </div>
+            );
+          })
+        )}
+      </div>
+
+      <div className="w-full bg-[#262421] rounded-lg p-4 flex flex-col gap-4 mt-2 shadow-lg">
+        <div className="text-lg font-medium text-center min-h-[28px] text-[#bababa] overflow-x-auto whitespace-nowrap">
+          {gameState.history.length > 0 ? gameState.history.slice(-6).join(' ') : 'Make a move to start'}
+        </div>
+        
+        <div className="flex gap-3">
+          <button 
+            onClick={handleUndo}
+            disabled={gameState.history.length === 0 || gameState.isGameOver}
+            className="flex-1 py-3 rounded bg-[#302e2b] hover:bg-[#383632] disabled:opacity-50 disabled:cursor-not-allowed text-white font-bold transition-colors flex items-center justify-center gap-2"
+          >
+            <Undo2 size={18} /> Undo
+          </button>
+          <button 
+            onClick={handleReset}
+            className="flex-1 py-3 rounded bg-[#c33] hover:bg-[#d44] text-white font-bold shadow-[0_3px_#922] active:translate-y-[3px] active:shadow-none transition-all flex items-center justify-center gap-2"
+          >
+            <RotateCcw size={18} /> Reset
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function Puzzles() {
   const [game, setGame] = useState(new Chess());
   const [puzzleIndex, setPuzzleIndex] = useState(0);
   const [puzzle, setPuzzle] = useState(PUZZLES[0]);
@@ -181,109 +342,135 @@ export default function App() {
   const files = boardFlipped ? [7,6,5,4,3,2,1,0] : [0,1,2,3,4,5,6,7];
 
   return (
-    <div className="min-h-screen bg-[#161512] text-[#bababa] flex flex-col font-sans selection:bg-transparent">
-      <header className="p-4 flex justify-between items-center bg-[#262421] shadow-md">
-        <h1 className="text-xl font-bold text-white">Chess Puzzles</h1>
+    <div className="flex flex-col items-center w-full gap-4">
+      <div className="w-full flex justify-between items-end px-1">
+        <div className="flex items-center gap-2 text-sm">
+          <div className={`w-3 h-3 rounded-sm border border-gray-600 ${boardFlipped ? 'bg-white' : 'bg-black'}`}></div>
+          <span className="truncate max-w-[250px] text-xs text-gray-400 capitalize">
+            {puzzle?.themes.split(' ').slice(0, 3).join(', ').replace(/([A-Z])/g, ' $1').trim()}
+          </span>
+        </div>
         <div className="text-sm font-medium px-3 py-1 bg-[#302e2b] rounded text-[#8b8987]">
           Rating: {puzzle?.rating}
         </div>
+      </div>
+
+      <div className={`w-full aspect-square grid grid-cols-8 grid-rows-8 rounded shadow-2xl relative border-2 border-[#302e2b] overflow-hidden transition-all duration-200 ${isWrong ? 'ring-4 ring-red-500/80' : ''}`}>
+        {ranks.map((rank, rIdx) => 
+          files.map((file, fIdx) => {
+            const sq = String.fromCharCode(97 + file) + (rank + 1);
+            const piece = board[rank][file];
+            const isDark = (rank + file) % 2 === 0;
+            
+            const isSelected = selectedSquare === sq;
+            const isLastMove = lastMove?.from === sq || lastMove?.to === sq;
+            const isLegal = legalMoves.some(m => m.to === sq);
+
+            return (
+              <div 
+                key={sq}
+                onClick={() => handleSquareClick(sq)}
+                className={`relative flex items-center justify-center cursor-pointer
+                  ${isDark ? 'bg-[#b58863]' : 'bg-[#f0d9b5]'}
+                `}
+              >
+                {isLastMove && <div className="absolute inset-0 bg-[#9bc700] opacity-40 pointer-events-none"></div>}
+                {isSelected && <div className="absolute inset-0 bg-[#14551e] opacity-50 pointer-events-none"></div>}
+                {isLegal && (
+                  <div className="absolute w-1/3 h-1/3 rounded-full bg-black/20 pointer-events-none z-10"></div>
+                )}
+
+                {fIdx === 0 && (
+                  <span className={`absolute top-0.5 left-1 text-[10px] font-bold ${isDark ? 'text-[#f0d9b5]' : 'text-[#b58863]'}`}>
+                    {rank + 1}
+                  </span>
+                )}
+                {rIdx === 7 && (
+                  <span className={`absolute bottom-0.5 right-1 text-[10px] font-bold ${isDark ? 'text-[#f0d9b5]' : 'text-[#b58863]'}`}>
+                    {String.fromCharCode(97 + file)}
+                  </span>
+                )}
+
+                {piece && (
+                  <div 
+                    className={`text-[11vw] sm:text-[55px] leading-none z-20 select-none
+                      ${piece.color === 'w' 
+                        ? 'text-white drop-shadow-[0_2px_2px_rgba(0,0,0,0.4)] [-webkit-text-stroke:1.5px_#222]' 
+                        : 'text-[#222] drop-shadow-[0_2px_2px_rgba(0,0,0,0.4)] [-webkit-text-stroke:1.5px_#ddd]'
+                      }
+                    `}
+                  >
+                    {PIECES[piece.type]}
+                  </div>
+                )}
+              </div>
+            );
+          })
+        )}
+      </div>
+
+      <div className="w-full flex justify-between items-start px-1">
+        <div className="flex items-center gap-2 text-sm">
+          <div className={`w-3 h-3 rounded-sm border border-gray-600 ${boardFlipped ? 'bg-black' : 'bg-white'}`}></div>
+          <span className={`font-bold ${status.includes('Incorrect') ? 'text-red-400' : isSolved ? 'text-[#629924]' : 'text-white'}`}>
+            {status}
+          </span>
+        </div>
+      </div>
+
+      <div className="w-full bg-[#262421] rounded-lg p-4 flex flex-col gap-4 mt-2 shadow-lg">
+        <div className="text-lg font-medium text-center min-h-[28px] text-[#bababa] overflow-x-auto whitespace-nowrap">
+          {moveHistory.length > 0 ? moveHistory.join(' ') : 'Find the best move'}
+        </div>
+        
+        <div className="flex gap-3">
+          <button 
+            onClick={handleHint}
+            className="flex-1 py-3 rounded bg-[#302e2b] hover:bg-[#383632] text-white font-bold transition-colors flex items-center justify-center gap-2"
+          >
+            <Lightbulb size={18} /> Hint
+          </button>
+          <button 
+            onClick={handleNext}
+            className="flex-1 py-3 rounded bg-[#629924] hover:bg-[#73b32a] text-white font-bold shadow-[0_3px_#4a731b] active:translate-y-[3px] active:shadow-none transition-all flex items-center justify-center gap-2"
+          >
+            <RefreshCw size={18} /> Next
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+export default function App() {
+  const [mode, setMode] = useState<'puzzles' | 'local'>('puzzles');
+
+  return (
+    <div className="min-h-screen bg-[#161512] text-[#bababa] flex flex-col font-sans selection:bg-transparent">
+      <header className="p-4 flex justify-between items-center bg-[#262421] shadow-md">
+        <h1 className="text-xl font-bold text-white flex items-center gap-2">
+          {mode === 'puzzles' ? <Puzzle size={20} /> : <Play size={20} />}
+          {mode === 'puzzles' ? 'Chess Puzzles' : 'Local Play'}
+        </h1>
+        
+        <div className="flex bg-[#161512] rounded-lg p-1">
+          <button 
+            onClick={() => setMode('puzzles')}
+            className={`px-3 py-1.5 text-sm font-bold rounded-md transition-colors ${mode === 'puzzles' ? 'bg-[#302e2b] text-white' : 'text-[#8b8987] hover:text-white'}`}
+          >
+            Puzzles
+          </button>
+          <button 
+            onClick={() => setMode('local')}
+            className={`px-3 py-1.5 text-sm font-bold rounded-md transition-colors ${mode === 'local' ? 'bg-[#302e2b] text-white' : 'text-[#8b8987] hover:text-white'}`}
+          >
+            Local Play
+          </button>
+        </div>
       </header>
 
-      <main className="flex-1 flex flex-col items-center w-full max-w-[500px] mx-auto p-3 sm:p-4 gap-4">
-        
-        <div className="w-full flex justify-between items-end px-1">
-          <div className="flex items-center gap-2 text-sm">
-            <div className={`w-3 h-3 rounded-sm border border-gray-600 ${boardFlipped ? 'bg-white' : 'bg-black'}`}></div>
-            <span className="truncate max-w-[250px] text-xs text-gray-400 capitalize">
-              {puzzle?.themes.split(' ').slice(0, 3).join(', ').replace(/([A-Z])/g, ' $1').trim()}
-            </span>
-          </div>
-        </div>
-
-        <div className={`w-full aspect-square grid grid-cols-8 grid-rows-8 rounded shadow-2xl relative border-2 border-[#302e2b] overflow-hidden transition-all duration-200 ${isWrong ? 'ring-4 ring-red-500/80' : ''}`}>
-          {ranks.map((rank, rIdx) => 
-            files.map((file, fIdx) => {
-              const sq = String.fromCharCode(97 + file) + (rank + 1);
-              const piece = board[rank][file];
-              const isDark = (rank + file) % 2 === 0;
-              
-              const isSelected = selectedSquare === sq;
-              const isLastMove = lastMove?.from === sq || lastMove?.to === sq;
-              const isLegal = legalMoves.some(m => m.to === sq);
-
-              return (
-                <div 
-                  key={sq}
-                  onClick={() => handleSquareClick(sq)}
-                  className={`relative flex items-center justify-center cursor-pointer
-                    ${isDark ? 'bg-[#b58863]' : 'bg-[#f0d9b5]'}
-                  `}
-                >
-                  {isLastMove && <div className="absolute inset-0 bg-[#9bc700] opacity-40 pointer-events-none"></div>}
-                  {isSelected && <div className="absolute inset-0 bg-[#14551e] opacity-50 pointer-events-none"></div>}
-                  {isLegal && (
-                    <div className="absolute w-1/3 h-1/3 rounded-full bg-black/20 pointer-events-none z-10"></div>
-                  )}
-
-                  {fIdx === 0 && (
-                    <span className={`absolute top-0.5 left-1 text-[10px] font-bold ${isDark ? 'text-[#f0d9b5]' : 'text-[#b58863]'}`}>
-                      {rank + 1}
-                    </span>
-                  )}
-                  {rIdx === 7 && (
-                    <span className={`absolute bottom-0.5 right-1 text-[10px] font-bold ${isDark ? 'text-[#f0d9b5]' : 'text-[#b58863]'}`}>
-                      {String.fromCharCode(97 + file)}
-                    </span>
-                  )}
-
-                  {piece && (
-                    <div 
-                      className={`text-[11vw] sm:text-[55px] leading-none z-20 select-none
-                        ${piece.color === 'w' 
-                          ? 'text-white drop-shadow-[0_2px_2px_rgba(0,0,0,0.4)] [-webkit-text-stroke:1.5px_#222]' 
-                          : 'text-[#222] drop-shadow-[0_2px_2px_rgba(0,0,0,0.4)] [-webkit-text-stroke:1.5px_#ddd]'
-                        }
-                      `}
-                    >
-                      {PIECES[piece.type]}
-                    </div>
-                  )}
-                </div>
-              );
-            })
-          )}
-        </div>
-
-        <div className="w-full flex justify-between items-start px-1">
-          <div className="flex items-center gap-2 text-sm">
-            <div className={`w-3 h-3 rounded-sm border border-gray-600 ${boardFlipped ? 'bg-black' : 'bg-white'}`}></div>
-            <span className={`font-bold ${status.includes('Incorrect') ? 'text-red-400' : isSolved ? 'text-[#629924]' : 'text-white'}`}>
-              {status}
-            </span>
-          </div>
-        </div>
-
-        <div className="w-full bg-[#262421] rounded-lg p-4 flex flex-col gap-4 mt-2 shadow-lg">
-          <div className="text-lg font-medium text-center min-h-[28px] text-[#bababa]">
-            {moveHistory.length > 0 ? moveHistory.join(' ') : 'Find the best move'}
-          </div>
-          
-          <div className="flex gap-3">
-            <button 
-              onClick={handleHint}
-              className="flex-1 py-3 rounded bg-[#302e2b] hover:bg-[#383632] text-white font-bold transition-colors flex items-center justify-center gap-2"
-            >
-              <Lightbulb size={18} /> Hint
-            </button>
-            <button 
-              onClick={handleNext}
-              className="flex-1 py-3 rounded bg-[#629924] hover:bg-[#73b32a] text-white font-bold shadow-[0_3px_#4a731b] active:translate-y-[3px] active:shadow-none transition-all flex items-center justify-center gap-2"
-            >
-              <RefreshCw size={18} /> Next
-            </button>
-          </div>
-        </div>
-
+      <main className="flex-1 flex flex-col items-center w-full max-w-[500px] mx-auto p-3 sm:p-4">
+        {mode === 'puzzles' ? <Puzzles /> : <LocalPlay />}
       </main>
     </div>
   );
