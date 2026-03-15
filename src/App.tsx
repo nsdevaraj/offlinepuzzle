@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { Chess } from 'chess.js';
-import { RefreshCw, Lightbulb, Play, Puzzle, RotateCcw, Undo2 } from 'lucide-react';
+import { RefreshCw, Lightbulb, Play, Puzzle, RotateCcw, Undo2, Eye } from 'lucide-react';
 import { ChessEngine, GameState } from './ChessEngine';
 
 const CSV_DATA = `PuzzleId,FEN,Moves,Rating,Themes
@@ -43,7 +43,7 @@ function parsePuzzles(csv: string) {
 const PUZZLES = parsePuzzles(CSV_DATA);
 
 const PIECES: Record<string, string> = {
-  p: '♟', n: '♞', b: '♝', r: '♜', q: '♛', k: '♚'
+  p: '♟\uFE0E', n: '♞\uFE0E', b: '♝\uFE0E', r: '♜\uFE0E', q: '♛\uFE0E', k: '♚\uFE0E'
 };
 
 function LocalPlay() {
@@ -165,10 +165,10 @@ function LocalPlay() {
 
                 {piece && (
                   <div 
-                    className={`text-[11vw] sm:text-[55px] leading-none z-20 select-none
+                    className={`text-[11vw] sm:text-[55px] leading-none z-20 select-none font-sans
                       ${piece.color === 'w' 
-                        ? 'text-white drop-shadow-[0_2px_2px_rgba(0,0,0,0.4)] [-webkit-text-stroke:1.5px_#222]' 
-                        : 'text-[#222] drop-shadow-[0_2px_2px_rgba(0,0,0,0.4)] [-webkit-text-stroke:1.5px_#ddd]'
+                        ? 'text-white drop-shadow-[0_2px_2px_rgba(0,0,0,0.4)] [-webkit-text-stroke:2px_#000]' 
+                        : 'text-black drop-shadow-[0_2px_2px_rgba(0,0,0,0.4)] [-webkit-text-stroke:1px_#000]'
                       }
                     `}
                   >
@@ -248,7 +248,7 @@ function Puzzles() {
   }, [loadPuzzle]);
 
   const handleSquareClick = (square: string) => {
-    if (isSolved) return;
+    if (isSolved || !puzzle || status === 'Computer thinking...') return;
 
     if (selectedSquare === square) {
       setSelectedSquare(null);
@@ -286,7 +286,11 @@ function Puzzles() {
             setIsSolved(true);
             setSelectedSquare(null);
             setLegalMoves([]);
+            setMoveIndex(nextIdx);
           } else {
+            setStatus('Computer thinking...');
+            setSelectedSquare(null);
+            setLegalMoves([]);
             // Computer response
             setTimeout(() => {
               const compMove = puzzle.moves[nextIdx];
@@ -318,6 +322,86 @@ function Puzzles() {
         setLegalMoves([]);
       }
     }
+  };
+
+  const handleShowMove = () => {
+    if (isSolved || !puzzle || status === 'Computer thinking...') return;
+    const expectedMove = puzzle.moves[moveIndex];
+    if (expectedMove) {
+      const from = expectedMove.slice(0,2);
+      const to = expectedMove.slice(2,4);
+      const promotion = expectedMove.length > 4 ? expectedMove[4] : 'q';
+      
+      const newGame = new Chess(game.fen());
+      const moveObj = newGame.move({ from, to, promotion });
+      setGame(newGame);
+      setLastMove({ from, to });
+      setMoveHistory(prev => [...prev, moveObj ? moveObj.san : expectedMove]);
+      setIsWrong(false);
+      
+      let nextIdx = moveIndex + 1;
+      
+      if (nextIdx >= puzzle.moves.length) {
+        setStatus('Puzzle Solved!');
+        setIsSolved(true);
+        setSelectedSquare(null);
+        setLegalMoves([]);
+        setMoveIndex(nextIdx);
+      } else {
+        setStatus('Computer thinking...');
+        setSelectedSquare(null);
+        setLegalMoves([]);
+        // Computer response
+        setTimeout(() => {
+          const compMove = puzzle.moves[nextIdx];
+          const compGame = new Chess(newGame.fen());
+          const compMoveObj = compGame.move({ from: compMove.slice(0,2), to: compMove.slice(2,4), promotion: 'q' });
+          setGame(compGame);
+          setLastMove({ from: compMove.slice(0,2), to: compMove.slice(2,4) });
+          setMoveIndex(nextIdx + 1);
+          setMoveHistory(prev => [...prev, compMoveObj ? compMoveObj.san : compMove]);
+          
+          if (nextIdx + 1 >= puzzle.moves.length) {
+            setStatus('Puzzle Solved!');
+            setIsSolved(true);
+          } else {
+            setStatus('Your turn');
+          }
+        }, 300);
+      }
+    }
+  };
+
+  const handlePreviousMove = () => {
+    if (moveIndex <= 1 || !puzzle || status === 'Computer thinking...') return;
+    
+    const newGame = new Chess(game.fen());
+    
+    // If it's solved, the last move was the player's. So undo 1 half-move.
+    // If it's not solved, the last move was the computer's. So undo 2 half-moves.
+    const undoCount = isSolved ? 1 : 2;
+    
+    for (let i = 0; i < undoCount; i++) {
+      newGame.undo();
+    }
+    
+    setGame(newGame);
+    setMoveIndex(moveIndex - undoCount);
+    setMoveHistory(prev => prev.slice(0, -undoCount));
+    
+    const history = newGame.history({ verbose: true });
+    if (history.length > 0) {
+      const last = history[history.length - 1];
+      setLastMove({ from: last.from, to: last.to });
+    } else {
+      const firstMove = puzzle.moves[0];
+      setLastMove({ from: firstMove.slice(0,2), to: firstMove.slice(2,4) });
+    }
+    
+    setIsSolved(false);
+    setStatus('Your turn');
+    setSelectedSquare(null);
+    setLegalMoves([]);
   };
 
   const handleNext = () => {
@@ -393,10 +477,10 @@ function Puzzles() {
 
                 {piece && (
                   <div 
-                    className={`text-[11vw] sm:text-[55px] leading-none z-20 select-none
+                    className={`text-[11vw] sm:text-[55px] leading-none z-20 select-none font-sans
                       ${piece.color === 'w' 
-                        ? 'text-white drop-shadow-[0_2px_2px_rgba(0,0,0,0.4)] [-webkit-text-stroke:1.5px_#222]' 
-                        : 'text-[#222] drop-shadow-[0_2px_2px_rgba(0,0,0,0.4)] [-webkit-text-stroke:1.5px_#ddd]'
+                        ? 'text-white drop-shadow-[0_2px_2px_rgba(0,0,0,0.4)] [-webkit-text-stroke:2px_#000]' 
+                        : 'text-black drop-shadow-[0_2px_2px_rgba(0,0,0,0.4)] [-webkit-text-stroke:1px_#000]'
                       }
                     `}
                   >
@@ -423,18 +507,33 @@ function Puzzles() {
           {moveHistory.length > 0 ? moveHistory.join(' ') : 'Find the best move'}
         </div>
         
-        <div className="flex gap-3">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+          <button 
+            onClick={handlePreviousMove}
+            disabled={moveIndex <= 1 || status === 'Computer thinking...'}
+            className="py-2 rounded bg-[#302e2b] hover:bg-[#383632] disabled:opacity-50 disabled:cursor-not-allowed text-white font-bold transition-colors flex items-center justify-center gap-2 text-sm"
+          >
+            <Undo2 size={16} /> Undo
+          </button>
           <button 
             onClick={handleHint}
-            className="flex-1 py-3 rounded bg-[#302e2b] hover:bg-[#383632] text-white font-bold transition-colors flex items-center justify-center gap-2"
+            disabled={isSolved || status === 'Computer thinking...'}
+            className="py-2 rounded bg-[#302e2b] hover:bg-[#383632] disabled:opacity-50 disabled:cursor-not-allowed text-white font-bold transition-colors flex items-center justify-center gap-2 text-sm"
           >
-            <Lightbulb size={18} /> Hint
+            <Lightbulb size={16} /> Hint
+          </button>
+          <button 
+            onClick={handleShowMove}
+            disabled={isSolved || status === 'Computer thinking...'}
+            className="py-2 rounded bg-[#302e2b] hover:bg-[#383632] disabled:opacity-50 disabled:cursor-not-allowed text-white font-bold transition-colors flex items-center justify-center gap-2 text-sm"
+          >
+            <Eye size={16} /> Show
           </button>
           <button 
             onClick={handleNext}
-            className="flex-1 py-3 rounded bg-[#629924] hover:bg-[#73b32a] text-white font-bold shadow-[0_3px_#4a731b] active:translate-y-[3px] active:shadow-none transition-all flex items-center justify-center gap-2"
+            className="py-2 rounded bg-[#629924] hover:bg-[#73b32a] text-white font-bold shadow-[0_3px_#4a731b] active:translate-y-[3px] active:shadow-none transition-all flex items-center justify-center gap-2 text-sm"
           >
-            <RefreshCw size={18} /> Next
+            <RefreshCw size={16} /> Next
           </button>
         </div>
       </div>
