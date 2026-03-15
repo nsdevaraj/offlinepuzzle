@@ -1,0 +1,5 @@
+{
+  "name": "Offline Chess Puzzles",
+  "description": "A clean, mobile-friendly offline chess puzzle app with Lichess-style board.",
+  "requestFramePermissions": []
+}
