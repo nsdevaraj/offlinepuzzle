@@ -68,6 +68,10 @@ export class ChessEngine {
     return this.chess.undo();
   }
 
+  public getHistory(): Move[] {
+    return this.chess.history({ verbose: true }) as Move[];
+  }
+
   public getState(): GameState {
     let result: GameResult = 'active';
     let winner: Color | null = null;
