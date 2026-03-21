@@ -64493,11 +64493,5 @@
     "Rating": "903",
     "RatingDeviation": "78",
     "GameUrl": "https://lichess.org/VBzM2hZt/black#62"
-  },
-  {
-    "Themes": "backRankMate mate mateIn2 middlegame short",
-    "OpeningFamily": "",
-    "Popularity": "82",
-    "NbPlays": "19",
-    "PuzzleId": "0VVWh",
-    "FEN": "r4k1r/3R1ppp/p2Q2b1/1p2p3/1Pq5/P1N2P2
+  }
+]
