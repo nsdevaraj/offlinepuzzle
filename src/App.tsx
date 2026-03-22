@@ -210,6 +210,15 @@ function Puzzles() {
   const [isSolved, setIsSolved] = useState(false);
   const [moveHistory, setMoveHistory] = useState<string[]>([]);
   const [isWrong, setIsWrong] = useState(false);
+  
+  // Gamification state
+  const [score, setScore] = useState(0);
+  const [streak, setStreak] = useState(0);
+  const [highestStreak, setHighestStreak] = useState(0);
+  const [level, setLevel] = useState(1);
+  const [xp, setXp] = useState(0);
+  const [hasUsedHint, setHasUsedHint] = useState(false);
+  const [showXpPopup, setShowXpPopup] = useState<{xp: number, score: number} | null>(null);
 
   const loadPuzzle = useCallback((index: number) => {
     const p = PUZZLES[index];
@@ -230,6 +239,7 @@ function Puzzles() {
     setIsSolved(false);
     setMoveHistory([moveObj ? moveObj.san : firstMove]);
     setIsWrong(false);
+    setHasUsedHint(false);
   }, []);
 
   useEffect(() => {
@@ -278,6 +288,27 @@ function Puzzles() {
             setSelectedSquare(null);
             setLegalMoves([]);
             setMoveIndex(nextIdx);
+
+            if (!hasUsedHint) {
+              const newStreak = streak + 1;
+              setStreak(newStreak);
+              if (newStreak > highestStreak) setHighestStreak(newStreak);
+              
+              const gainedXp = 10 + newStreak * 2;
+              const newXp = xp + gainedXp;
+              const newScore = score + 100 + newStreak * 10;
+              setScore(newScore);
+              
+              if (newXp >= level * 100) {
+                setLevel(level + 1);
+                setXp(newXp - level * 100);
+              } else {
+                setXp(newXp);
+              }
+              
+              setShowXpPopup({ xp: gainedXp, score: 100 + newStreak * 10 });
+              setTimeout(() => setShowXpPopup(null), 2000);
+            }
           } else {
             setStatus('Computer thinking...');
             setSelectedSquare(null);
@@ -295,6 +326,27 @@ function Puzzles() {
               if (nextIdx + 1 >= puzzle.moves.length) {
                 setStatus('Puzzle Solved!');
                 setIsSolved(true);
+
+                if (!hasUsedHint) {
+                  const newStreak = streak + 1;
+                  setStreak(newStreak);
+                  if (newStreak > highestStreak) setHighestStreak(newStreak);
+                  
+                  const gainedXp = 10 + newStreak * 2;
+                  const newXp = xp + gainedXp;
+                  const newScore = score + 100 + newStreak * 10;
+                  setScore(newScore);
+                  
+                  if (newXp >= level * 100) {
+                    setLevel(level + 1);
+                    setXp(newXp - level * 100);
+                  } else {
+                    setXp(newXp);
+                  }
+                  
+                  setShowXpPopup({ xp: gainedXp, score: 100 + newStreak * 10 });
+                  setTimeout(() => setShowXpPopup(null), 2000);
+                }
               } else {
                 setStatus('Your turn');
               }
@@ -303,6 +355,8 @@ function Puzzles() {
         } else {
           setStatus('Incorrect move. Try again.');
           setIsWrong(true);
+          setStreak(0);
+          setHasUsedHint(true);
           setTimeout(() => setIsWrong(false), 500);
         }
       } else if (piece && piece.color === game.turn()) {
@@ -317,6 +371,8 @@ function Puzzles() {
 
   const handleShowMove = () => {
     if (isSolved || !puzzle || status === 'Computer thinking...') return;
+    setStreak(0);
+    setHasUsedHint(true);
     const expectedMove = puzzle.moves[moveIndex];
     if (expectedMove) {
       const from = expectedMove.slice(0,2);
@@ -403,6 +459,8 @@ function Puzzles() {
 
   const handleHint = () => {
     if (isSolved) return;
+    setStreak(0);
+    setHasUsedHint(true);
     const expectedMove = puzzle.moves[moveIndex];
     if (expectedMove) {
       const from = expectedMove.slice(0,2);
@@ -418,6 +476,42 @@ function Puzzles() {
 
   return (
     <div className="flex flex-col items-center w-full gap-4">
+      <div className="w-full flex justify-between items-center bg-[#262421] p-3 rounded-lg shadow-md relative">
+        {showXpPopup && (
+          <div className="absolute top-full left-1/2 -translate-x-1/2 mt-2 z-50 animate-bounce">
+            <div className="bg-green-500 text-white px-3 py-1 rounded-full font-bold text-sm shadow-lg whitespace-nowrap">
+              +{showXpPopup.score} Score | +{showXpPopup.xp} XP
+            </div>
+          </div>
+        )}
+        <div className="flex flex-col">
+          <span className="text-xs text-gray-400 uppercase tracking-wider font-bold">Level {level}</span>
+          <div className="w-24 h-2 bg-gray-700 rounded-full mt-1 overflow-hidden">
+            <div className="h-full bg-blue-500 transition-all" style={{ width: `${(xp / (level * 100)) * 100}%` }}></div>
+          </div>
+        </div>
+        
+        <div className="flex gap-4 text-center">
+          <div className="flex flex-col">
+            <span className="text-xs text-gray-400 uppercase tracking-wider font-bold">Score</span>
+            <span className="text-lg font-bold text-white">{score}</span>
+          </div>
+          <div className="flex flex-col">
+            <span className="text-xs text-gray-400 uppercase tracking-wider font-bold">Streak</span>
+            <div className="flex items-baseline gap-1">
+              <span className={`text-lg font-bold ${streak > 0 ? 'text-orange-400' : 'text-white'}`}>
+                {streak} {streak > 2 && '🔥'}
+              </span>
+              {highestStreak > 0 && (
+                <span className="text-[10px] text-gray-500 font-medium" title="Highest Streak">
+                  / {highestStreak}
+                </span>
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
+
       <div className="w-full flex justify-between items-end px-1">
         <div className="flex items-center gap-2 text-sm">
           <div className={`w-3 h-3 rounded-sm border border-gray-600 ${boardFlipped ? 'bg-white' : 'bg-black'}`}></div>
