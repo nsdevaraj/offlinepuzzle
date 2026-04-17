@@ -1,3 +1,5 @@
+#npx cap init OfflineChess devois.com.offlinepuzzle --web-dir=build
+
 https://capacitorjs.com/solution/react)](https://capacitorjs.com/solution/react
 
 npm install @capacitor/core @capacitor/cli
