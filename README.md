@@ -3,7 +3,7 @@
 https://capacitorjs.com/solution/react)](https://capacitorjs.com/solution/react
 
 npm install @capacitor/core @capacitor/cli
-npx cap init [name] [id] --web-dir=build
+npx cap init OfflineChessPro com.devois.offlinechess --web-dir=build
 
 npm i @capacitor/ios
 npx cap add ios

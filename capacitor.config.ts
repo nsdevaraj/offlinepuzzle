@@ -1,8 +1,8 @@
 import type { CapacitorConfig } from '@capacitor/cli';
 
 const config: CapacitorConfig = {
-  appId: 'devois.com.offlinepuzzle',
-  appName: 'OfflineChess',
+  appId: 'com.devois.offlinechess',
+  appName: 'OfflineChess Pro',
   webDir: 'build'
 };
 
