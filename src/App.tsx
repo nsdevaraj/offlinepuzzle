@@ -627,29 +627,30 @@ export default function App() {
 
   return (
     <div className="min-h-screen bg-[#161512] text-[#bababa] flex flex-col font-sans selection:bg-transparent">
-      <header className="p-4 flex justify-between items-center bg-[#262421] shadow-md">
+      <header className="p-4 flex items-center bg-[#262421] shadow-md">
         <h1 className="text-xl font-bold text-white flex items-center gap-2">
           {mode === 'puzzles' ? <Puzzle size={20} /> : <Play size={20} />}
           {mode === 'puzzles' ? 'Chess Puzzles' : 'Local Play'}
         </h1>
-        
-        <div className="flex bg-[#161512] rounded-lg p-1">
-          <button 
-            onClick={() => setMode('puzzles')}
-            className={`px-3 py-1.5 text-sm font-bold rounded-md transition-colors ${mode === 'puzzles' ? 'bg-[#302e2b] text-white' : 'text-[#8b8987] hover:text-white'}`}
-          >
-            Puzzles
-          </button>
-          <button 
-            onClick={() => setMode('local')}
-            className={`px-3 py-1.5 text-sm font-bold rounded-md transition-colors ${mode === 'local' ? 'bg-[#302e2b] text-white' : 'text-[#8b8987] hover:text-white'}`}
-          >
-            Local Play
-          </button>
-        </div>
       </header>
 
       <main className="flex-1 flex flex-col items-center w-full max-w-[500px] mx-auto p-3 sm:p-4">
+        <div className="w-full flex justify-end mb-2">
+          <div className="flex bg-[#161512] rounded-lg p-1">
+            <button 
+              onClick={() => setMode('puzzles')}
+              className={`px-3 py-1.5 text-sm font-bold rounded-md transition-colors ${mode === 'puzzles' ? 'bg-[#302e2b] text-white' : 'text-[#8b8987] hover:text-white'}`}
+            >
+              Puzzles
+            </button>
+            <button 
+              onClick={() => setMode('local')}
+              className={`px-3 py-1.5 text-sm font-bold rounded-md transition-colors ${mode === 'local' ? 'bg-[#302e2b] text-white' : 'text-[#8b8987] hover:text-white'}`}
+            >
+              Local Play
+            </button>
+          </div>
+        </div>
         {mode === 'puzzles' ? <Puzzles /> : <LocalPlay />}
       </main>
     </div>
