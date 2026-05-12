@@ -627,11 +627,8 @@ export default function App() {
 
   return (
     <div className="min-h-screen bg-[#161512] text-[#bababa] flex flex-col font-sans selection:bg-transparent">
-      <header className="py-2 px-4 flex items-center bg-[#262421] shadow-md landscape:hidden">
-        <h1 className="text-xl font-bold text-white flex items-center gap-2">
-          {mode === 'puzzles' ? <Puzzle size={20} /> : <Play size={20} />}
-          {mode === 'puzzles' ? '    Chess' : '    Local'}
-        </h1>
+      <header className="py-4 px-4 flex items-center bg-[#262421] shadow-md landscape:hidden">
+
       </header>
 
       <main className="flex-1 flex flex-col items-center w-full max-w-[500px] mx-auto p-3 sm:p-4">
