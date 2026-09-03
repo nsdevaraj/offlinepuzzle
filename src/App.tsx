@@ -34,6 +34,7 @@ function LocalPlay() {
   const [selectedSquare, setSelectedSquare] = useState<string | null>(null);
   const [legalMoves, setLegalMoves] = useState<any[]>([]);
   const [lastMove, setLastMove] = useState<{ from: string, to: string } | null>(null);
+  const [boardFlipped, setBoardFlipped] = useState(false);
 
   const handleSquareClick = (square: string) => {
     if (gameState.isGameOver) return;
@@ -56,8 +57,10 @@ function LocalPlay() {
       if (move) {
         const result = engine.move(move.from, move.to, 'q');
         if (result) {
-          setGameState(engine.getState());
+          const newState = engine.getState();
+          setGameState(newState);
           setLastMove({ from: move.from, to: move.to });
+          setBoardFlipped(newState.turn === 'b');
         }
       } else if (piece && piece.color === gameState.turn) {
         setSelectedSquare(square);
@@ -75,6 +78,7 @@ function LocalPlay() {
     setGameState(newState);
     setSelectedSquare(null);
     setLegalMoves([]);
+    setBoardFlipped(newState.turn === 'b');
 
     if (newState.history.length > 0) {
       // Get the last move from the engine's internal history
@@ -96,10 +100,11 @@ function LocalPlay() {
     setSelectedSquare(null);
     setLegalMoves([]);
     setLastMove(null);
+    setBoardFlipped(false);
   };
 
-  const ranks = [7, 6, 5, 4, 3, 2, 1, 0];
-  const files = [0, 1, 2, 3, 4, 5, 6, 7];
+  const ranks = boardFlipped ? [0, 1, 2, 3, 4, 5, 6, 7] : [7, 6, 5, 4, 3, 2, 1, 0];
+  const files = boardFlipped ? [7, 6, 5, 4, 3, 2, 1, 0] : [0, 1, 2, 3, 4, 5, 6, 7];
 
   let statusText = gameState.turn === 'w' ? "White's Turn" : "Black's Turn";
   if (gameState.isGameOver) {
@@ -277,6 +282,7 @@ function Puzzles() {
           const moveObj = newGame.move({ from: move.from, to: move.to, promotion: 'q' });
           setGame(newGame);
           setLastMove({ from: move.from, to: move.to });
+          setBoardFlipped(newGame.turn() === 'b');
           setMoveHistory(prev => [...prev, moveObj ? moveObj.san : playerMoveUci]);
           setIsWrong(false);
 
@@ -320,6 +326,7 @@ function Puzzles() {
               const compMoveObj = compGame.move({ from: compMove.slice(0, 2), to: compMove.slice(2, 4), promotion: 'q' });
               setGame(compGame);
               setLastMove({ from: compMove.slice(0, 2), to: compMove.slice(2, 4) });
+              setBoardFlipped(compGame.turn() === 'b');
               setMoveIndex(nextIdx + 1);
               setMoveHistory(prev => [...prev, compMoveObj ? compMoveObj.san : compMove]);
 
@@ -383,6 +390,7 @@ function Puzzles() {
       const moveObj = newGame.move({ from, to, promotion });
       setGame(newGame);
       setLastMove({ from, to });
+      setBoardFlipped(newGame.turn() === 'b');
       setMoveHistory(prev => [...prev, moveObj ? moveObj.san : expectedMove]);
       setIsWrong(false);
 
@@ -405,6 +413,7 @@ function Puzzles() {
           const compMoveObj = compGame.move({ from: compMove.slice(0, 2), to: compMove.slice(2, 4), promotion: 'q' });
           setGame(compGame);
           setLastMove({ from: compMove.slice(0, 2), to: compMove.slice(2, 4) });
+          setBoardFlipped(compGame.turn() === 'b');
           setMoveIndex(nextIdx + 1);
           setMoveHistory(prev => [...prev, compMoveObj ? compMoveObj.san : compMove]);
 
@@ -436,6 +445,7 @@ function Puzzles() {
 
     setGame(newGame);
     setMoveIndex(newMoveIndex);
+    setBoardFlipped(newGame.turn() === 'b');
     setMoveHistory(prev => prev.slice(0, -undoCount));
 
     if (newMoveIndex > 0) {
