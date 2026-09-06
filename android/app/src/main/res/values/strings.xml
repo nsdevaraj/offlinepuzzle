@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">OfflineChess Pro</string>
+    <string name="title_activity_main">OfflineChess Pro</string>
+    <string name="package_name">com.devois.offlinechess</string>
+    <string name="custom_url_scheme">com.devois.offlinechess</string>
+</resources>
